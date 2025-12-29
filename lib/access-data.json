@@ -1,0 +1,31 @@
+{
+  "/admin": {
+    "allowedUsers": [],
+    "isMaintenance": false
+  },
+  "/admin/files": {
+    "allowedUsers": [],
+    "isMaintenance": false
+  },
+  "/admin/users": {
+    "allowedUsers": [],
+    "isMaintenance": false
+  },
+  "/admin/categories": {
+    "allowedUsers": [],
+    "isMaintenance": false
+  },
+  "/admin/access": {
+    "allowedUsers": [],
+    "isMaintenance": false
+  },
+  "/profile": {
+    "allowedUsers": [],
+    "isMaintenance": false,
+    "maintenanceMessage": "00555555"
+  },
+  "/settings": {
+    "allowedUsers": [],
+    "isMaintenance": false
+  }
+}

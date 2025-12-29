@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --theme-primary: #3b82f6;
+  --theme-secondary: #f1f5f9;
+  --theme-accent: #64748b;
+  --theme-background: #ffffff;
+  --theme-text: #1f2937;
+  --theme-button: #3b82f6;
+  --theme-card: #ffffff;
+  --theme-navbar: #3b82f6;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-kanit), sans-serif;
+}
+

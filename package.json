@@ -1,0 +1,50 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "cross-env TURBOPACK=0 next build",
+    "build:ci": "node ./scripts/build-ci.cjs",
+    "postinstall": "npx prisma generate",
+    "start": "node -e \"(async()=>{ const { spawnSync } = await import('node:child_process'); process.env.NODE_ENV='production'; process.env.NEXT_DISABLE_TURBOPACK='1'; const res = spawnSync('npx',['next','start'],{stdio:'inherit',env:process.env}); process.exit(res.status||0); })();\"",
+    "start:ci": "node -e \"(async()=>{ const { spawnSync } = await import('node:child_process'); process.env.NODE_ENV='production'; process.env.NEXT_DISABLE_TURBOPACK='1'; const res = spawnSync('npx',['next','start'],{stdio:'inherit',env:process.env}); process.exit(res.status||0); })();\"",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@tailwindcss/postcss": "^4",
+    "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
+    "cross-env": "^7.0.3",
+    "framer-motion": "^12.23.25",
+    "isomorphic-dompurify": "^2.35.0",
+    "jsdom": "^27.4.0",
+    "lucide-react": "^0.556.0",
+    "next": "^16.0.10",
+    "next-auth": "^4.24.13",
+    "next-themes": "^0.4.6",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "react-hot-toast": "^2.6.0",
+    "react-image-crop": "^11.0.10",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^27.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "dotenv": "^16.3.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.8",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

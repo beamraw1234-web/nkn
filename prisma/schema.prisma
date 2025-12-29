@@ -1,0 +1,159 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model CategoryLock {
+  id         String   @id @default(uuid())
+  userId     String
+  categoryId String
+  locked     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, categoryId])
+}
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  nickname      String?  // ชื่อเล่น
+  password      String
+  role          String   @default("USER") // USER, ADMIN
+  status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, BANNED
+  profilePicture String? // Path to profile picture file
+  coverImage    String? // Path to cover image file
+  failedLoginAttempts Int @default(0)
+  lockoutUntil        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  categoryLocks CategoryLock[]
+}
+
+model SystemSettings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model SeasonalThemeSettings {
+  id                    String   @id @default(uuid())
+  currentTheme          String   @default("default")
+  snowEnabled           Boolean  @default(false)
+  fireworksEnabled      Boolean  @default(false)
+  effectSpeed           Float    @default(1.0)
+  effectIntensity       Float    @default(1.0)
+  effectMaxParticles    Int      @default(100)
+  effectEnabled         Boolean  @default(true)
+  effectColor           String   @default("#ffffff")
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  userId    String?
+  username  String
+  action    String
+  details   String?  @db.Text
+  ip        String?
+  userAgent String?
+  role      String   // USER, ADMIN
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  visible   Boolean  @default(true)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files     File[]
+  locks     CategoryLock[]
+}
+
+model File {
+  id          String   @id @default(uuid())
+  name        String
+  storageKey  String   @unique // filename on disk or S3 key
+  mime        String
+  size        Int
+  categoryId  String?
+  isHidden    Boolean  @default(false) // global hide
+  password    String?  // bcrypt hash if file protected
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime?
+
+  category    Category? @relation(fields: [categoryId], references: [id])
+  shares      FileShare[]
+  logs        FileLog[]
+  hiddenFor   FileHidden[]
+  seasonalOverrides SeasonalOverride[]
+
+}
+
+model FileShare {
+  id            String   @id @default(uuid())
+  fileId        String
+  token         String   @unique
+  password      String?  // bcrypt hash for link
+  expiresAt     DateTime?
+  maxDownloads  Int?     // optional limit
+  downloads     Int      @default(0)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+
+  file          File     @relation(fields: [fileId], references: [id])
+}
+
+model FileLog {
+  id        String   @id @default(uuid())
+  fileId    String?
+  userId    String?
+  username  String?
+  action    String
+  details   String?  @db.Text
+  ip        String?
+  role      String?
+  createdAt DateTime @default(now())
+
+  file      File?    @relation(fields: [fileId], references: [id])
+}
+
+model FileHidden {
+  id        String   @id @default(uuid())
+  fileId    String
+  userId    String
+  hidden    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  file      File     @relation(fields: [fileId], references: [id])
+}
+
+model SeasonalOverride {
+  id           String   @id @default(uuid())
+  pagePath     String
+  componentName String
+  fileId       String
+  enabled      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  file         File     @relation(fields: [fileId], references: [id])
+}

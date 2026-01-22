@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import authOptions from '@/lib/authOptions'
+import { randomUUID } from 'crypto'
 
 export async function GET(req: Request, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
@@ -11,9 +12,9 @@ export async function GET(req: Request, { params }: { params: { id: string } | P
     const p = (params instanceof Promise) ? await params : params
     const categoryId = p.id
 
-    const locks = await prisma.categoryLock.findMany({
+    const locks = await prisma.categorylock.findMany({
       where: { categoryId },
-      include: { user: { select: { id: true, username: true, nickname: true } } }
+      include: { user: { select: { id: true, username: true } } }
     })
 
     return NextResponse.json({ ok: true, locks })
@@ -32,13 +33,13 @@ export async function POST(req: Request, { params }: { params: { id: string } | 
     const { userId, locked } = await req.json()
 
     if (locked) {
-      await prisma.categoryLock.upsert({
+      await prisma.categorylock.upsert({
         where: { userId_categoryId: { userId, categoryId } },
         update: { locked: true },
-        create: { userId, categoryId, locked: true }
+        create: { id: randomUUID(), userId, categoryId, locked: true }
       })
     } else {
-      await prisma.categoryLock.deleteMany({
+      await prisma.categorylock.deleteMany({
         where: { userId, categoryId }
       })
     }

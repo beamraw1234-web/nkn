@@ -32,6 +32,7 @@ interface File {
   isHidden: boolean
   password?: string
   mime: string
+  priceSatang?: number
   category?: { id: string, name: string }
 }
 
@@ -66,11 +67,19 @@ export default function AdminFilesPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [newName, setNewName] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newPrice, setNewPrice] = useState<string>('0')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [uploadCategory, setUploadCategory] = useState('')
   const [uploadPassword, setUploadPassword] = useState('')
   const [uploadHidden, setUploadHidden] = useState(false)
+  const [uploadPrice, setUploadPrice] = useState<string>('0')
+
+  const parsePriceSatang = (value: string) => {
+    const n = Number(value)
+    if (!Number.isFinite(n) || n < 0) return 0
+    return Math.round(n * 100)
+  }
 
   const fetchFiles = async () => {
     try {
@@ -134,6 +143,7 @@ export default function AdminFilesPage() {
             categoryId: uploadCategory || null,
             password: uploadPassword || null,
             isHidden: uploadHidden,
+            priceSatang: parsePriceSatang(uploadPrice),
           }),
         })
         if (!res.ok) {
@@ -150,6 +160,7 @@ export default function AdminFilesPage() {
         isHidden: uploadHidden,
         password: uploadPassword || undefined,
         mime: (file as any).type,
+        priceSatang: parsePriceSatang(uploadPrice),
         category: cats.find(c => c.id === uploadCategory) || undefined
       }))
       setFiles(prev => [...prev, ...newFiles])
@@ -171,6 +182,7 @@ export default function AdminFilesPage() {
       setUploadCategory('')
       setUploadPassword('')
       setUploadHidden(false)
+      setUploadPrice('0')
     } catch (error) {
       toast.error('เกิดข้อผิดพลาดในการอัปโหลด')
     }
@@ -228,7 +240,8 @@ export default function AdminFilesPage() {
         body: JSON.stringify({
           name: newName,
           password: newPassword,
-          isHidden: uploadHidden
+          isHidden: uploadHidden,
+          priceSatang: parsePriceSatang(newPrice)
         }),
       })
       if (res.ok) {
@@ -238,6 +251,7 @@ export default function AdminFilesPage() {
         setSelectedFile(null)
         setNewName('')
         setNewPassword('')
+        setNewPrice('0')
         setUploadHidden(false)
       }
     } catch (error) {
@@ -493,11 +507,20 @@ export default function AdminFilesPage() {
                       ล็อก
                     </span>
                   )}
+                  {(f.priceSatang || 0) > 0 ? (
+                    <span className="px-2 py-1 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 rounded-full">
+                      ฿{((f.priceSatang || 0) / 100).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-200 rounded-full">
+                      ฟรี
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setSelectedFile(f); setNewName(f.name); setNewPassword(f.password || ''); setUploadHidden(f.isHidden); setEditModal(true) }}
+                    onClick={() => { setSelectedFile(f); setNewName(f.name); setNewPassword(f.password || ''); setUploadHidden(f.isHidden); setNewPrice(String(((f.priceSatang || 0) / 100).toFixed(2))); setEditModal(true) }}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
                   >
                     <Edit size={14} />
@@ -628,6 +651,20 @@ export default function AdminFilesPage() {
                   </label>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ราคา (บาท) - ใส่ 0 เพื่อให้ฟรี</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    value={uploadPrice}
+                    onChange={(e) => setUploadPrice(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    placeholder="0.00"
+                  />
+                </div>
+
                 <div className="flex gap-3 justify-end mt-6">
                   <button
                     type="button"
@@ -714,6 +751,20 @@ export default function AdminFilesPage() {
                     <label htmlFor="editHidden" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       ซ่อนไฟล์
                     </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ราคา (บาท) - ใส่ 0 เพื่อให้ฟรี</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      placeholder="0.00"
+                    />
                   </div>
 
                   <div className="flex gap-3 justify-end mt-6">

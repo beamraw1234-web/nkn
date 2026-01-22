@@ -3,69 +3,102 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import authOptions from '@/lib/authOptions'
 import { createLog } from '@/lib/log'
+import { randomUUID } from 'crypto'
+
+type SystemSettingsDelegate = {
+  findUnique: (args: unknown) => Promise<{ key: string; value: string } | null>
+  upsert: (args: unknown) => Promise<unknown>
+}
+
+function getSettingsDelegate(): SystemSettingsDelegate {
+  const prismaAny = prisma as unknown as { systemSettings?: SystemSettingsDelegate; systemsettings?: SystemSettingsDelegate }
+  const systemSettings = prismaAny.systemSettings ?? prismaAny.systemsettings
+  if (!systemSettings) throw new Error('Prisma model delegate for SystemSettings not found')
+  return systemSettings
+}
+
+async function upsertSetting(systemSettings: SystemSettingsDelegate, key: string, value: string, now: Date) {
+  return systemSettings.upsert({
+    where: { key },
+    update: { value, updatedAt: now },
+    create: { id: randomUUID(), key, value, updatedAt: now }
+  })
+}
 
 export async function GET() {
   try {
-    const devtoolsSetting = await prisma.systemSettings.findUnique({
+    const systemSettings = getSettingsDelegate()
+
+    const devtoolsSetting = await systemSettings.findUnique({
       where: { key: 'disable_devtools' }
     })
-    const logoSetting = await prisma.systemSettings.findUnique({
+    const logoSetting = await systemSettings.findUnique({
       where: { key: 'site_logo' }
     })
-    const themeSetting = await prisma.systemSettings.findUnique({
+    const themeSetting = await systemSettings.findUnique({
       where: { key: 'system_theme' }
     })
-    const discordWebhookSetting = await prisma.systemSettings.findUnique({
+    const discordWebhookSetting = await systemSettings.findUnique({
       where: { key: 'discord_webhook_url' }
     })
-    const notifyLoginSetting = await prisma.systemSettings.findUnique({
+    const notifyLoginSetting = await systemSettings.findUnique({
       where: { key: 'notify_on_login' }
     })
-    const maintenanceSetting = await prisma.systemSettings.findUnique({
+    const maintenanceSetting = await systemSettings.findUnique({
       where: { key: 'maintenance_mode' }
     })
-    const maintenanceMessageSetting = await prisma.systemSettings.findUnique({
+    const maintenanceMessageSetting = await systemSettings.findUnique({
       where: { key: 'maintenance_message' }
     })
-    const maintenanceEndTimeSetting = await prisma.systemSettings.findUnique({
+    const maintenanceEndTimeSetting = await systemSettings.findUnique({
       where: { key: 'maintenance_end_time' }
     })
-    const languageSetting = await prisma.systemSettings.findUnique({
+    const languageSetting = await systemSettings.findUnique({
       where: { key: 'system_language' }
     })
-    const backgroundTypeSetting = await prisma.systemSettings.findUnique({
+    const backgroundTypeSetting = await systemSettings.findUnique({
       where: { key: 'system_background_type' }
     })
-    const backgroundValueSetting = await prisma.systemSettings.findUnique({
+    const backgroundValueSetting = await systemSettings.findUnique({
       where: { key: 'system_background_value' }
     })
-    const backgroundColorSetting = await prisma.systemSettings.findUnique({
+    const backgroundColorSetting = await systemSettings.findUnique({
       where: { key: 'system_background_color' }
     })
-    const backgroundGridColorSetting = await prisma.systemSettings.findUnique({
+    const backgroundGridColorSetting = await systemSettings.findUnique({
       where: { key: 'system_background_grid_color' }
     })
-    const backgroundGridAlphaSetting = await prisma.systemSettings.findUnique({
+    const backgroundGridAlphaSetting = await systemSettings.findUnique({
       where: { key: 'system_background_grid_alpha' }
     })
-    const backgroundGridAutoSetting = await prisma.systemSettings.findUnique({
+    const backgroundGridAutoSetting = await systemSettings.findUnique({
       where: { key: 'system_background_grid_auto' }
     })
-    const backgroundBlurSetting = await prisma.systemSettings.findUnique({
+    const backgroundBlurSetting = await systemSettings.findUnique({
       where: { key: 'system_background_blur' }
     })
-    const sessionTimeoutSetting = await prisma.systemSettings.findUnique({
+    const sessionTimeoutSetting = await systemSettings.findUnique({
       where: { key: 'session_timeout_minutes' }
     })
-    const weatherEffectSetting = await prisma.systemSettings.findUnique({
+    const weatherEffectSetting = await systemSettings.findUnique({
       where: { key: 'weather_effect' }
     })
-    const weatherSpeedSetting = await prisma.systemSettings.findUnique({
+    const weatherSpeedSetting = await systemSettings.findUnique({
       where: { key: 'weather_speed' }
     })
-    const weatherColorSetting = await prisma.systemSettings.findUnique({
+    const weatherColorSetting = await systemSettings.findUnique({
       where: { key: 'weather_color' }
     })
+
+    const omiseEnabledSetting = await systemSettings.findUnique({ where: { key: 'omise_promptpay_enabled' } })
+    const omiseSecretKeySetting = await systemSettings.findUnique({ where: { key: 'omise_secret_key' } })
+    const omisePublicKeySetting = await systemSettings.findUnique({ where: { key: 'omise_public_key' } })
+    const omiseVersionSetting = await systemSettings.findUnique({ where: { key: 'omise_api_version' } })
+    const omiseCurrencySetting = await systemSettings.findUnique({ where: { key: 'omise_currency' } })
+    const omiseAmountSetting = await systemSettings.findUnique({ where: { key: 'omise_promptpay_amount_satang' } })
+
+    const hasOmiseSecretKey = Boolean(omiseSecretKeySetting?.value?.trim())
+    const masked = hasOmiseSecretKey ? `${omiseSecretKeySetting!.value.slice(0, 8)}••••••••` : ''
 
     return NextResponse.json({
       enabled: devtoolsSetting ? devtoolsSetting.value === 'true' : true,
@@ -88,7 +121,14 @@ export async function GET() {
       sessionTimeoutMinutes: sessionTimeoutSetting ? parseInt(sessionTimeoutSetting.value) : 60,
       weatherEffect: weatherEffectSetting?.value || 'none',
       weatherSpeed: weatherSpeedSetting ? parseFloat(weatherSpeedSetting.value) : 1,
-      weatherColor: weatherColorSetting?.value || '#ffffff'
+      weatherColor: weatherColorSetting?.value || '#ffffff',
+      omiseEnabled: omiseEnabledSetting ? omiseEnabledSetting.value === 'true' : true,
+      omiseHasSecretKey: hasOmiseSecretKey,
+      omiseSecretKeyMasked: masked,
+      omisePublicKey: omisePublicKeySetting?.value || '',
+      omiseApiVersion: omiseVersionSetting?.value || '2019-05-29',
+      omiseCurrency: omiseCurrencySetting?.value || 'thb',
+      omiseDefaultAmountSatang: omiseAmountSetting?.value || '1000'
     })
   } catch (error) {
     console.error('GET /api/settings failed:', (error as any)?.message ?? error)
@@ -124,14 +164,12 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json()
+    const systemSettings = getSettingsDelegate()
+    const now = new Date()
 
     // Handle Security Setting
     if (typeof body.enabled !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'disable_devtools' },
-        update: { value: String(body.enabled) },
-        create: { key: 'disable_devtools', value: String(body.enabled) }
-      })
+      await upsertSetting(systemSettings, 'disable_devtools', String(body.enabled), now)
 
       await createLog(
         session.user.name || 'Admin',
@@ -144,11 +182,7 @@ export async function PUT(req: Request) {
 
   // Handle Logo Setting
   if (typeof body.logoUrl !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'site_logo' },
-      update: { value: body.logoUrl },
-      create: { key: 'site_logo', value: body.logoUrl }
-    })
+    await upsertSetting(systemSettings, 'site_logo', String(body.logoUrl), now)
 
     await createLog(
       session.user.name || 'Admin',
@@ -161,11 +195,7 @@ export async function PUT(req: Request) {
 
   // Handle Theme Setting
   if (typeof body.theme !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'system_theme' },
-      update: { value: body.theme },
-      create: { key: 'system_theme', value: body.theme }
-    })
+    await upsertSetting(systemSettings, 'system_theme', String(body.theme), now)
 
     await createLog(
       session.user.name || 'Admin',
@@ -178,46 +208,26 @@ export async function PUT(req: Request) {
 
   // Handle Discord Webhook
   if (typeof body.discordWebhookUrl !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'discord_webhook_url' },
-      update: { value: body.discordWebhookUrl },
-      create: { key: 'discord_webhook_url', value: body.discordWebhookUrl }
-    })
+    await upsertSetting(systemSettings, 'discord_webhook_url', String(body.discordWebhookUrl), now)
   }
 
   // Handle Notify on Login
   if (typeof body.notifyOnLogin !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'notify_on_login' },
-      update: { value: String(body.notifyOnLogin) },
-      create: { key: 'notify_on_login', value: String(body.notifyOnLogin) }
-    })
+    await upsertSetting(systemSettings, 'notify_on_login', String(body.notifyOnLogin), now)
   }
 
   // Handle Maintenance Mode
   if (typeof body.maintenanceMode !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'maintenance_mode' },
-      update: { value: String(body.maintenanceMode) },
-      create: { key: 'maintenance_mode', value: String(body.maintenanceMode) }
-    })
+    await upsertSetting(systemSettings, 'maintenance_mode', String(body.maintenanceMode), now)
 
     // Handle Maintenance Message
     if (typeof body.maintenanceMessage !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'maintenance_message' },
-        update: { value: body.maintenanceMessage },
-        create: { key: 'maintenance_message', value: body.maintenanceMessage }
-      })
+      await upsertSetting(systemSettings, 'maintenance_message', String(body.maintenanceMessage), now)
     }
 
     // Handle Maintenance End Time
     if (typeof body.maintenanceEndTime !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'maintenance_end_time' },
-        update: { value: body.maintenanceEndTime },
-        create: { key: 'maintenance_end_time', value: body.maintenanceEndTime }
-      })
+      await upsertSetting(systemSettings, 'maintenance_end_time', String(body.maintenanceEndTime), now)
     }
 
     await createLog(
@@ -231,11 +241,7 @@ export async function PUT(req: Request) {
 
   // Handle Language Setting
   if (typeof body.language !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'system_language' },
-      update: { value: body.language },
-      create: { key: 'system_language', value: body.language }
-    })
+    await upsertSetting(systemSettings, 'system_language', String(body.language), now)
 
     await createLog(
       session.user.name || 'Admin',
@@ -248,58 +254,30 @@ export async function PUT(req: Request) {
 
   // Handle Background Setting
   if (typeof body.backgroundType !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'system_background_type' },
-      update: { value: body.backgroundType },
-      create: { key: 'system_background_type', value: body.backgroundType }
-    })
+    await upsertSetting(systemSettings, 'system_background_type', String(body.backgroundType), now)
 
     if (typeof body.backgroundValue !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'system_background_value' },
-        update: { value: body.backgroundValue },
-        create: { key: 'system_background_value', value: body.backgroundValue }
-      })
+      await upsertSetting(systemSettings, 'system_background_value', String(body.backgroundValue), now)
     }
 
     if (typeof body.backgroundColor !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'system_background_color' },
-        update: { value: body.backgroundColor },
-        create: { key: 'system_background_color', value: body.backgroundColor }
-      })
+      await upsertSetting(systemSettings, 'system_background_color', String(body.backgroundColor), now)
     }
 
     if (typeof body.backgroundGridColor !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'system_background_grid_color' },
-        update: { value: body.backgroundGridColor },
-        create: { key: 'system_background_grid_color', value: body.backgroundGridColor }
-      })
+      await upsertSetting(systemSettings, 'system_background_grid_color', String(body.backgroundGridColor), now)
     }
 
     if (typeof body.backgroundGridAlpha !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'system_background_grid_alpha' },
-        update: { value: String(body.backgroundGridAlpha) },
-        create: { key: 'system_background_grid_alpha', value: String(body.backgroundGridAlpha) }
-      })
+      await upsertSetting(systemSettings, 'system_background_grid_alpha', String(body.backgroundGridAlpha), now)
     }
 
     if (typeof body.backgroundGridAuto !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'system_background_grid_auto' },
-        update: { value: String(body.backgroundGridAuto) },
-        create: { key: 'system_background_grid_auto', value: String(body.backgroundGridAuto) }
-      })
+      await upsertSetting(systemSettings, 'system_background_grid_auto', String(body.backgroundGridAuto), now)
     }
 
     if (typeof body.backgroundBlur !== 'undefined') {
-      await prisma.systemSettings.upsert({
-        where: { key: 'system_background_blur' },
-        update: { value: String(body.backgroundBlur) },
-        create: { key: 'system_background_blur', value: String(body.backgroundBlur) }
-      })
+      await upsertSetting(systemSettings, 'system_background_blur', String(body.backgroundBlur), now)
     }
 
     await createLog(
@@ -313,11 +291,7 @@ export async function PUT(req: Request) {
 
   // Handle Session Timeout
   if (typeof body.sessionTimeoutMinutes !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'session_timeout_minutes' },
-      update: { value: String(body.sessionTimeoutMinutes) },
-      create: { key: 'session_timeout_minutes', value: String(body.sessionTimeoutMinutes) }
-    })
+    await upsertSetting(systemSettings, 'session_timeout_minutes', String(body.sessionTimeoutMinutes), now)
 
     await createLog(
       session.user.name || 'Admin',
@@ -330,11 +304,7 @@ export async function PUT(req: Request) {
 
   // Handle Weather Effect
   if (typeof body.weatherEffect !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'weather_effect' },
-      update: { value: body.weatherEffect },
-      create: { key: 'weather_effect', value: body.weatherEffect }
-    })
+    await upsertSetting(systemSettings, 'weather_effect', String(body.weatherEffect), now)
 
     await createLog(
       session.user.name || 'Admin',
@@ -347,11 +317,7 @@ export async function PUT(req: Request) {
 
   // Handle Weather Speed
   if (typeof body.weatherSpeed !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'weather_speed' },
-      update: { value: String(body.weatherSpeed) },
-      create: { key: 'weather_speed', value: String(body.weatherSpeed) }
-    })
+    await upsertSetting(systemSettings, 'weather_speed', String(body.weatherSpeed), now)
 
     await createLog(
       session.user.name || 'Admin',
@@ -364,11 +330,7 @@ export async function PUT(req: Request) {
 
   // Handle Weather Color
   if (typeof body.weatherColor !== 'undefined') {
-    await prisma.systemSettings.upsert({
-      where: { key: 'weather_color' },
-      update: { value: body.weatherColor },
-      create: { key: 'weather_color', value: body.weatherColor }
-    })
+    await upsertSetting(systemSettings, 'weather_color', String(body.weatherColor), now)
 
     await createLog(
       session.user.name || 'Admin',
@@ -377,6 +339,26 @@ export async function PUT(req: Request) {
       `เปลี่ยนสีเอฟเฟกต์สภาพอากาศเป็น ${body.weatherColor}`,
       session.user.id
     )
+  }
+
+  // Handle Omise PromptPay settings
+  if (typeof body.omiseEnabled !== 'undefined') {
+    await upsertSetting(systemSettings, 'omise_promptpay_enabled', String(Boolean(body.omiseEnabled)), now)
+  }
+  if (typeof body.omiseSecretKey !== 'undefined') {
+    await upsertSetting(systemSettings, 'omise_secret_key', String(body.omiseSecretKey || '').trim(), now)
+  }
+  if (typeof body.omisePublicKey !== 'undefined') {
+    await upsertSetting(systemSettings, 'omise_public_key', String(body.omisePublicKey || '').trim(), now)
+  }
+  if (typeof body.omiseApiVersion !== 'undefined') {
+    await upsertSetting(systemSettings, 'omise_api_version', String(body.omiseApiVersion || '').trim() || '2019-05-29', now)
+  }
+  if (typeof body.omiseCurrency !== 'undefined') {
+    await upsertSetting(systemSettings, 'omise_currency', String(body.omiseCurrency || '').trim() || 'thb', now)
+  }
+  if (typeof body.omiseDefaultAmountSatang !== 'undefined') {
+    await upsertSetting(systemSettings, 'omise_promptpay_amount_satang', String(body.omiseDefaultAmountSatang || '').trim() || '1000', now)
   }
 
     return NextResponse.json({ success: true })

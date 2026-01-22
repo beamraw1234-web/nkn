@@ -66,7 +66,11 @@ export async function getSystemSettingsSafe() {
     const { PrismaClient } = await import('@prisma/client')
     const temp = new PrismaClient(commonPrismaOptions)
     try {
-      const res = await temp.systemSettings.findMany()
+      const tempAny = temp as unknown as { systemSettings?: { findMany: () => Promise<unknown> }; systemsettings?: { findMany: () => Promise<unknown> } }
+      const systemSettings = tempAny.systemSettings ?? tempAny.systemsettings
+      if (!systemSettings) throw new Error('Prisma model delegate for SystemSettings not found')
+
+      const res = await systemSettings.findMany()
       await temp.$disconnect().catch(() => {})
       return res
     } catch (e) {

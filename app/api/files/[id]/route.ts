@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: { id: string } | P
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ ok: false, message: 'unauthorized' }, { status: 401 })
 
-    const file = await prisma.file.findUnique({ where: { id }, include: { category: true, hiddenFor: true } })
+    const file = await prisma.file.findUnique({ where: { id }, include: { category: true, filehidden: true } })
     if (!file) return NextResponse.json({ ok: false, message: 'not_found' }, { status: 404 })
 
     // Check if hidden and user is not admin
@@ -48,6 +48,9 @@ export async function GET(req: Request, { params }: { params: { id: string } | P
 
 export async function PATCH(req: Request, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'ADMIN') return NextResponse.json({ ok: false, message: 'unauthorized' }, { status: 401 })
+
     const p = (params instanceof Promise) ? await params : params
     const id = p.id
     const body = await req.json()
@@ -56,6 +59,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } |
     if (typeof body.categoryId !== 'undefined') update.categoryId = body.categoryId || null
     if (typeof body.isHidden !== 'undefined') update.isHidden = Boolean(body.isHidden)
     if (typeof body.expiresAt !== 'undefined') update.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null
+    if (typeof body.priceSatang !== 'undefined') {
+      const n = Number(body.priceSatang)
+      if (!Number.isFinite(n) || n < 0) return NextResponse.json({ ok: false, message: 'invalid_price' }, { status: 400 })
+      update.priceSatang = Math.floor(n)
+    }
     if (typeof body.password !== 'undefined') {
       if (body.password) {
         const salt = bcrypt.genSaltSync(10)
@@ -64,6 +72,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } |
         update.password = null
       }
     }
+
+    update.updatedAt = new Date()
 
     const rec = await prisma.file.update({ where: { id }, data: update })
     return NextResponse.json({ ok: true, file: rec })
@@ -74,6 +84,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } |
 
 export async function DELETE(req: Request, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'ADMIN') return NextResponse.json({ ok: false, message: 'unauthorized' }, { status: 401 })
+
     const p = (params instanceof Promise) ? await params : params
     const id = p.id
     const file = await prisma.file.findUnique({ where: { id } })

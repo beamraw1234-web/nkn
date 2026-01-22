@@ -5,6 +5,10 @@ import DashboardWrapper from '@/components/DashboardWrapper'
 import MaintenanceScreen from '@/components/MaintenanceScreen'
 import { redirect } from 'next/navigation'
 
+type SystemSettingsDelegate = {
+  findMany: (args: unknown) => Promise<Array<{ key: string; value: string | null }>>
+}
+
 export default async function Home({ searchParams }: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const session = await getServerSession(authOptions)
 
@@ -23,17 +27,20 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
   let maintenanceEndTime = ''
 
   try {
-    // @ts-ignore
-    const settings = await prisma.systemSettings.findMany({
+    const prismaAny = prisma as unknown as { systemSettings?: SystemSettingsDelegate; systemsettings?: SystemSettingsDelegate }
+    const systemSettings = prismaAny.systemSettings ?? prismaAny.systemsettings
+    if (!systemSettings) throw new Error('Prisma model delegate for SystemSettings not found')
+
+    const settings = await systemSettings.findMany({
       where: {
         key: { in: ['site_logo', 'maintenance_mode', 'maintenance_message', 'maintenance_end_time'] }
       }
     })
 
-    const logoSetting = settings.find((s: any) => s.key === 'site_logo')
-    const maintenanceSetting = settings.find((s: any) => s.key === 'maintenance_mode')
-    const messageSetting = settings.find((s: any) => s.key === 'maintenance_message')
-    const endTimeSetting = settings.find((s: any) => s.key === 'maintenance_end_time')
+    const logoSetting = settings.find((s) => s.key === 'site_logo')
+    const maintenanceSetting = settings.find((s) => s.key === 'maintenance_mode')
+    const messageSetting = settings.find((s) => s.key === 'maintenance_message')
+    const endTimeSetting = settings.find((s) => s.key === 'maintenance_end_time')
 
     if (logoSetting?.value) {
       logoUrl = logoSetting.value

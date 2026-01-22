@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `file` ADD COLUMN `priceSatang` INTEGER NOT NULL DEFAULT 0;
+

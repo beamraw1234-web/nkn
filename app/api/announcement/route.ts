@@ -2,14 +2,25 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import authOptions from '@/lib/authOptions'
+import { randomUUID } from 'crypto'
+
+function getSettingsDelegate() {
+  const prismaAny = prisma as unknown as { systemSettings?: typeof prisma.systemsettings; systemsettings?: typeof prisma.systemsettings }
+  const systemSettings = prismaAny.systemSettings ?? prismaAny.systemsettings
+  if (!systemSettings) {
+    throw new Error('Prisma model delegate for SystemSettings not found')
+  }
+  return systemSettings
+}
 
 export async function GET() {
   try {
+    const systemSettings = getSettingsDelegate()
     const [contentSetting, iconSetting, colorSetting, speedSetting] = await Promise.all([
-      prisma.systemSettings.findUnique({ where: { key: 'admin_announcement' } }),
-      prisma.systemSettings.findUnique({ where: { key: 'admin_announcement_icon' } }),
-      prisma.systemSettings.findUnique({ where: { key: 'admin_announcement_color' } }),
-      prisma.systemSettings.findUnique({ where: { key: 'admin_announcement_speed' } })
+      systemSettings.findUnique({ where: { key: 'admin_announcement' } }),
+      systemSettings.findUnique({ where: { key: 'admin_announcement_icon' } }),
+      systemSettings.findUnique({ where: { key: 'admin_announcement_color' } }),
+      systemSettings.findUnique({ where: { key: 'admin_announcement_speed' } })
     ])
     
     return NextResponse.json({ 
@@ -32,34 +43,36 @@ export async function POST(req: Request) {
     }
 
     const { content, icon, color, speed } = await req.json()
+    const now = new Date()
+    const systemSettings = getSettingsDelegate()
 
-    await prisma.systemSettings.upsert({
+    await systemSettings.upsert({
       where: { key: 'admin_announcement' },
-      update: { value: content },
-      create: { key: 'admin_announcement', value: content }
+      update: { value: content, updatedAt: now },
+      create: { id: randomUUID(), key: 'admin_announcement', value: content, updatedAt: now }
     })
 
     if (icon) {
-      await prisma.systemSettings.upsert({
+      await systemSettings.upsert({
         where: { key: 'admin_announcement_icon' },
-        update: { value: icon },
-        create: { key: 'admin_announcement_icon', value: icon }
+        update: { value: icon, updatedAt: now },
+        create: { id: randomUUID(), key: 'admin_announcement_icon', value: icon, updatedAt: now }
       })
     }
 
     if (color) {
-      await prisma.systemSettings.upsert({
+      await systemSettings.upsert({
         where: { key: 'admin_announcement_color' },
-        update: { value: color },
-        create: { key: 'admin_announcement_color', value: color }
+        update: { value: color, updatedAt: now },
+        create: { id: randomUUID(), key: 'admin_announcement_color', value: color, updatedAt: now }
       })
     }
 
     if (speed) {
-      await prisma.systemSettings.upsert({
+      await systemSettings.upsert({
         where: { key: 'admin_announcement_speed' },
-        update: { value: speed.toString() },
-        create: { key: 'admin_announcement_speed', value: speed.toString() }
+        update: { value: speed.toString(), updatedAt: now },
+        create: { id: randomUUID(), key: 'admin_announcement_speed', value: speed.toString(), updatedAt: now }
       })
     }
 

@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { ArrowLeft, Moon, Bell, Globe, Shield, Lock, Unlock, Sun, Image as ImageIcon, Upload, X, ChevronRight, AlertTriangle, Power, Megaphone, Snowflake, Star, Zap, Heart, Monitor } from 'lucide-react'
+import { ArrowLeft, Moon, Bell, Globe, Shield, Lock, Unlock, Sun, Image as ImageIcon, Upload, X, ChevronRight, AlertTriangle, Power, Megaphone, Snowflake, Star, Zap, Heart, Monitor, QrCode } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useTheme } from 'next-themes'
 
@@ -63,9 +63,19 @@ export default function SettingsPage() {
   const [weatherIntensity, setWeatherIntensity] = useState(1)
   const [weatherSound, setWeatherSound] = useState(false)
 
+  const [isOmiseModalOpen, setIsOmiseModalOpen] = useState(false)
+  const [omiseEnabled, setOmiseEnabled] = useState(true)
+  const [omiseHasSecretKey, setOmiseHasSecretKey] = useState(false)
+  const [omiseSecretKeyMasked, setOmiseSecretKeyMasked] = useState('')
+  const [omiseSecretKeyInput, setOmiseSecretKeyInput] = useState('')
+  const [omisePublicKey, setOmisePublicKey] = useState('')
+  const [omiseApiVersion, setOmiseApiVersion] = useState('2019-05-29')
+  const [omiseCurrency, setOmiseCurrency] = useState('thb')
+  const [omiseDefaultAmountBaht, setOmiseDefaultAmountBaht] = useState('10.00')
+
 
   // Lock body when any modal is open
-  const anyModalOpen = isLogoModalOpen || isNotificationModalOpen || isMaintenanceModalOpen || isAnnouncementModalOpen || isBackgroundModalOpen || isSessionTimeoutModalOpen || isWeatherModalOpen
+  const anyModalOpen = isLogoModalOpen || isNotificationModalOpen || isMaintenanceModalOpen || isAnnouncementModalOpen || isBackgroundModalOpen || isSessionTimeoutModalOpen || isWeatherModalOpen || isOmiseModalOpen
   useModalBodyLock(anyModalOpen)
 
   useEffect(() => {
@@ -100,6 +110,15 @@ export default function SettingsPage() {
         setWeatherColor(data.weatherColor || '#ffffff')
         setWeatherIntensity(data.weatherIntensity || 1)
         setWeatherSound(data.weatherSound || false)
+        setOmiseEnabled(typeof data.omiseEnabled !== 'undefined' ? Boolean(data.omiseEnabled) : true)
+        setOmiseHasSecretKey(Boolean(data.omiseHasSecretKey))
+        setOmiseSecretKeyMasked(data.omiseSecretKeyMasked || '')
+        setOmisePublicKey(data.omisePublicKey || '')
+        setOmiseApiVersion(data.omiseApiVersion || '2019-05-29')
+        setOmiseCurrency((data.omiseCurrency || 'thb').toLowerCase())
+        const satang = Number.parseInt(String(data.omiseDefaultAmountSatang || '1000'), 10)
+        setOmiseDefaultAmountBaht(Number.isFinite(satang) ? (satang / 100).toFixed(2) : '10.00')
+        setOmiseSecretKeyInput('')
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -113,6 +132,34 @@ export default function SettingsPage() {
         if (data.speed) setAnnouncementSpeed(data.speed)
       })
   }, [])
+
+  const saveOmiseSettings = async () => {
+    try {
+      const baht = Number(omiseDefaultAmountBaht)
+      const satang = Number.isFinite(baht) && baht > 0 ? Math.round(baht * 100) : 1000
+
+      const payload: any = {
+        omiseEnabled,
+        omisePublicKey,
+        omiseApiVersion,
+        omiseCurrency,
+        omiseDefaultAmountSatang: String(satang)
+      }
+      if (omiseSecretKeyInput.trim()) payload.omiseSecretKey = omiseSecretKeyInput.trim()
+
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) throw new Error('save_failed')
+
+      toast.success('บันทึก Omise settings แล้ว')
+      setIsOmiseModalOpen(false)
+    } catch (error) {
+      toast.error('บันทึก Omise settings ไม่สำเร็จ')
+    }
+  }
 
   const handleBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
@@ -415,6 +462,16 @@ export default function SettingsPage() {
                       <AlertTriangle size={36} />
                     </div>
                     <div className="mt-3 text-sm font-medium text-gray-900 dark:text-white">โหมดปิดปรับปรุง</div>
+                  </div>
+                </button>
+
+                <button type="button" onClick={() => setIsOmiseModalOpen(true)} className="h-48 bg-white dark:bg-neutral-900 rounded-lg border border-gray-100 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow flex items-center justify-center cursor-pointer relative z-0">
+                  <div className="text-center">
+                    <div className="w-48 h-24 flex items-center justify-center mx-auto">
+                      <QrCode size={36} />
+                    </div>
+                    <div className="mt-3 text-sm font-medium text-gray-900 dark:text-white">Omise (PromptPay)</div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{omiseEnabled ? (omiseHasSecretKey ? 'เปิดใช้งาน' : 'ยังไม่มี Secret Key') : 'ปิดใช้งาน'}</div>
                   </div>
                 </button>
               </>
@@ -1212,6 +1269,127 @@ export default function SettingsPage() {
                           toast.error('บันทึกไม่สำเร็จ')
                         }
                       }}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors"
+                    >
+                      บันทึก
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
+            {/* Omise (PromptPay) Modal */}
+            {isOmiseModalOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                onClick={() => setIsOmiseModalOpen(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="pointer-events-auto bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-neutral-800"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="p-4 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center">
+                    <h3 className="font-bold text-lg">Omise (PromptPay)</h3>
+                    <button
+                      onClick={() => setIsOmiseModalOpen(false)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">เปิดใช้งานการชำระเงิน</label>
+                        <p className="text-xs text-gray-500">ใช้สำหรับหน้า Download (Share) ที่มีราคา</p>
+                      </div>
+                      <div
+                        onClick={() => setOmiseEnabled(!omiseEnabled)}
+                        className={`w-11 h-6 rounded-full relative transition-colors shrink-0 cursor-pointer ${omiseEnabled ? 'bg-green-500' : 'bg-gray-200 dark:bg-neutral-700'}`}
+                      >
+                        <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${omiseEnabled ? 'left-5.5' : 'left-0.5'}`}></div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900/50 p-3 text-xs text-gray-600 dark:text-gray-300">
+                      Secret Key: {omiseHasSecretKey ? (omiseSecretKeyMasked || 'ตั้งค่าแล้ว') : 'ยังไม่ได้ตั้งค่า'}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Omise Secret Key</label>
+                      <input
+                        type="password"
+                        value={omiseSecretKeyInput}
+                        onChange={(e) => setOmiseSecretKeyInput(e.target.value)}
+                        placeholder={omiseHasSecretKey ? 'ใส่เพื่อเปลี่ยน (เว้นว่างเพื่อคงเดิม)' : 'ใส่ Secret Key'}
+                        className="w-full px-4 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        autoComplete="off"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Omise Public Key (optional)</label>
+                      <input
+                        type="text"
+                        value={omisePublicKey}
+                        onChange={(e) => setOmisePublicKey(e.target.value)}
+                        placeholder="pkey_test_..."
+                        className="w-full px-4 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        autoComplete="off"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Currency</label>
+                        <input
+                          type="text"
+                          value={omiseCurrency}
+                          onChange={(e) => setOmiseCurrency(e.target.value)}
+                          placeholder="thb"
+                          className="w-full px-4 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Default Amount (บาท)</label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          step="0.01"
+                          value={omiseDefaultAmountBaht}
+                          onChange={(e) => setOmiseDefaultAmountBaht(e.target.value)}
+                          placeholder="10.00"
+                          className="w-full px-4 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Omise API Version</label>
+                      <input
+                        type="text"
+                        value={omiseApiVersion}
+                        onChange={(e) => setOmiseApiVersion(e.target.value)}
+                        placeholder="2019-05-29"
+                        className="w-full px-4 py-2 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 dark:bg-neutral-900/50 border-t border-gray-100 dark:border-neutral-800 flex justify-end gap-2">
+                    <button
+                      onClick={() => setIsOmiseModalOpen(false)}
+                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-neutral-800 rounded-xl font-medium transition-colors"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      onClick={saveOmiseSettings}
                       className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors"
                     >
                       บันทึก

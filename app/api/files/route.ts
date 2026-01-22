@@ -5,6 +5,7 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { getServerSession } from 'next-auth'
 import authOptions from '@/lib/authOptions'
+import { randomUUID } from 'crypto'
 
 export async function GET() {
   try {
@@ -25,7 +26,8 @@ export async function GET() {
           }
         },
         createdAt: true,
-        isHidden: isAdmin ? true : false
+        isHidden: isAdmin ? true : false,
+        priceSatang: true
       }
     })
     return NextResponse.json(files)
@@ -36,10 +38,22 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ ok: false, message: 'unauthorized' }, { status: 401 })
+    }
+
     const body = await req.json()
-    const { name, base64, mime, size, categoryId, password, isHidden, createdBy } = body
+    const { name, base64, mime, size, categoryId, password, isHidden, priceSatang } = body
 
     if (!name || !base64) return NextResponse.json({ ok: false, message: 'missing_fields' }, { status: 400 })
+
+    let normalizedPrice = 0
+    if (typeof priceSatang !== 'undefined') {
+      const n = Number(priceSatang)
+      if (!Number.isFinite(n) || n < 0) return NextResponse.json({ ok: false, message: 'invalid_price' }, { status: 400 })
+      normalizedPrice = Math.floor(n)
+    }
 
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
@@ -57,6 +71,7 @@ export async function POST(req: Request) {
 
     const rec = await prisma.file.create({
       data: {
+        id: randomUUID(),
         name,
         storageKey,
         mime: mime || 'application/octet-stream',
@@ -64,7 +79,9 @@ export async function POST(req: Request) {
         categoryId: categoryId || null,
         password: password || null,
         isHidden: isHidden || false,
-        createdBy: createdBy || null
+        priceSatang: normalizedPrice,
+        createdBy: session.user.id,
+        updatedAt: new Date()
       }
     })
 

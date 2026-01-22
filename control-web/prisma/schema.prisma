@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model offweb {
+  id        String   @id
+  isOff     Boolean  @default(false) @map("is_off")
+  message   String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model apikey {
+  id           String    @id
+  apiKeyHash   String    @map("api_key_hash")
+  apiKeyPrefix String    @map("api_key_prefix")
+  name         String
+  isActive     Boolean   @default(true) @map("is_active")
+  lastSeen     DateTime? @map("last_seen")
+  lastIp       String?   @map("last_ip")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@unique([apiKeyPrefix])
+  @@index([isActive])
+  @@index([lastSeen])
+  @@map("api_keys")
+}
+

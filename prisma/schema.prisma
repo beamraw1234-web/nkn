@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,120 +7,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model CategoryLock {
-  id         String   @id @default(uuid())
+model category {
+  id           String         @id
+  name         String
+  slug         String         @unique(map: "Category_slug_key")
+  visible      Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  createdBy    String?
+  categorylock categorylock[]
+  file         file[]
+}
+
+model categorylock {
+  id         String   @id
   userId     String
   categoryId String
   locked     Boolean  @default(true)
   createdAt  DateTime @default(now())
+  category   category @relation(fields: [categoryId], references: [id], onDelete: NoAction, map: "CategoryLock_categoryId_fkey")
+  user       user     @relation(fields: [userId], references: [id], onDelete: NoAction, map: "CategoryLock_userId_fkey")
 
-  user       User     @relation(fields: [userId], references: [id])
-  category   Category @relation(fields: [categoryId], references: [id])
-
-  @@unique([userId, categoryId])
+  @@unique([userId, categoryId], map: "CategoryLock_userId_categoryId_key")
+  @@index([categoryId], map: "CategoryLock_categoryId_fkey")
 }
 
-model User {
-  id            String   @id @default(uuid())
-  username      String   @unique
-  nickname      String?  // ชื่อเล่น
-  password      String
-  role          String   @default("USER") // USER, ADMIN
-  status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, BANNED
-  profilePicture String? // Path to profile picture file
-  coverImage    String? // Path to cover image file
-  failedLoginAttempts Int @default(0)
-  lockoutUntil        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model file {
+  id               String             @id
+  categoryId       String?
+  size             Int
+  mime             String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  createdBy        String?
+  expiresAt        DateTime?
+  isHidden         Boolean            @default(false)
+  name             String
+  password         String?
+  priceSatang      Int                @default(0)
+  storageKey       String             @unique(map: "File_storageKey_key")
+  category         category?          @relation(fields: [categoryId], references: [id], map: "File_categoryId_fkey")
+  filehidden       filehidden[]
+  filelog          filelog[]
+  fileshare        fileshare[]
+  seasonaloverride seasonaloverride[]
 
-  categoryLocks CategoryLock[]
+  @@index([categoryId], map: "File_categoryId_fkey")
 }
 
-model SystemSettings {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     String
-  updatedAt DateTime @updatedAt
-}
-
-model SeasonalThemeSettings {
-  id                    String   @id @default(uuid())
-  currentTheme          String   @default("default")
-  snowEnabled           Boolean  @default(false)
-  fireworksEnabled      Boolean  @default(false)
-  effectSpeed           Float    @default(1.0)
-  effectIntensity       Float    @default(1.0)
-  effectMaxParticles    Int      @default(100)
-  effectEnabled         Boolean  @default(true)
-  effectColor           String   @default("#ffffff")
-  updatedAt             DateTime @updatedAt
-  updatedBy             String?
-}
-
-model Log {
-  id        String   @id @default(uuid())
-  userId    String?
-  username  String
-  action    String
-  details   String?  @db.Text
-  ip        String?
-  userAgent String?
-  role      String   // USER, ADMIN
+model filehidden {
+  id        String   @id
+  fileId    String
+  userId    String
+  hidden    Boolean  @default(true)
   createdAt DateTime @default(now())
+  file      file     @relation(fields: [fileId], references: [id], onDelete: NoAction, map: "FileHidden_fileId_fkey")
+
+  @@index([fileId], map: "FileHidden_fileId_fkey")
 }
 
-model Category {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  visible   Boolean  @default(true)
-  createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  files     File[]
-  locks     CategoryLock[]
-}
-
-model File {
-  id          String   @id @default(uuid())
-  name        String
-  storageKey  String   @unique // filename on disk or S3 key
-  mime        String
-  size        Int
-  categoryId  String?
-  isHidden    Boolean  @default(false) // global hide
-  password    String?  // bcrypt hash if file protected
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  expiresAt   DateTime?
-
-  category    Category? @relation(fields: [categoryId], references: [id])
-  shares      FileShare[]
-  logs        FileLog[]
-  hiddenFor   FileHidden[]
-  seasonalOverrides SeasonalOverride[]
-
-}
-
-model FileShare {
-  id            String   @id @default(uuid())
-  fileId        String
-  token         String   @unique
-  password      String?  // bcrypt hash for link
-  expiresAt     DateTime?
-  maxDownloads  Int?     // optional limit
-  downloads     Int      @default(0)
-  createdBy     String?
-  createdAt     DateTime @default(now())
-
-  file          File     @relation(fields: [fileId], references: [id])
-}
-
-model FileLog {
-  id        String   @id @default(uuid())
+model filelog {
+  id        String   @id
   fileId    String?
   userId    String?
   username  String?
@@ -132,28 +76,291 @@ model FileLog {
   ip        String?
   role      String?
   createdAt DateTime @default(now())
+  file      file?    @relation(fields: [fileId], references: [id], map: "FileLog_fileId_fkey")
 
-  file      File?    @relation(fields: [fileId], references: [id])
+  @@index([fileId], map: "FileLog_fileId_fkey")
 }
 
-model FileHidden {
-  id        String   @id @default(uuid())
-  fileId    String
-  userId    String
-  hidden    Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  file      File     @relation(fields: [fileId], references: [id])
-}
-
-model SeasonalOverride {
-  id           String   @id @default(uuid())
-  pagePath     String
-  componentName String
+model fileshare {
+  id           String    @id
   fileId       String
-  enabled      Boolean  @default(false)
+  token        String    @unique(map: "FileShare_token_key")
+  expiresAt    DateTime?
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  downloads    Int       @default(0)
+  maxDownloads Int?
+  password     String?
+  file         file      @relation(fields: [fileId], references: [id], onDelete: NoAction, map: "FileShare_fileId_fkey")
+
+  @@index([fileId], map: "FileShare_fileId_fkey")
+}
+
+model downloadpayment {
+  id           String   @id
+  shareToken   String   @unique(map: "DownloadPayment_shareToken_key")
+  omiseChargeId String  @unique(map: "DownloadPayment_omiseChargeId_key")
+  amount       Int
+  currency     String
+  status       String   // PENDING, SUCCESS, FAILED, EXPIRED
+  qrImageUrl   String?  @db.Text
+  expiresAt    DateTime?
+  paidAt       DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
 
-  file         File     @relation(fields: [fileId], references: [id])
+model log {
+  id        String   @id
+  userId    String?
+  username  String
+  action    String
+  details   String?  @db.Text
+  ip        String?
+  userAgent String?
+  role      String
+  createdAt DateTime @default(now())
+}
+
+model seasonaloverride {
+  id            String   @id
+  pagePath      String
+  componentName String
+  fileId        String
+  enabled       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  file          file     @relation(fields: [fileId], references: [id], onDelete: NoAction, map: "SeasonalOverride_fileId_fkey")
+
+  @@index([fileId], map: "SeasonalOverride_fileId_fkey")
+}
+
+model seasonalthemesettings {
+  id                 String   @id
+  currentTheme       String   @default("default")
+  snowEnabled        Boolean  @default(false)
+  fireworksEnabled   Boolean  @default(false)
+  updatedAt          DateTime
+  updatedBy          String?
+  effectColor        String   @default("#ffffff")
+  effectEnabled      Boolean  @default(true)
+  effectIntensity    Float    @default(1)
+  effectMaxParticles Int      @default(100)
+  effectSpeed        Float    @default(1)
+}
+
+model systemsettings {
+  id        String   @id
+  key       String   @unique(map: "SystemSettings_key_key")
+  value     String   @db.LongText
+  updatedAt DateTime
+}
+
+model user {
+  id                  String         @id
+  username            String         @unique(map: "User_username_key")
+  studentId           String?        @unique(map: "User_studentId_key")
+  email               String?        @unique(map: "User_email_key")
+  emailVerifiedAt     DateTime?
+  password            String
+  role                String         @default("USER")
+  status              String         @default("ACTIVE")
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime
+  failedLoginAttempts Int            @default(0)
+  lockoutUntil        DateTime?
+  forcePasswordChange Boolean        @default(false)
+  forcePasswordChangeAt DateTime?
+  forcePasswordChangeReason String?  @db.Text
+  forcePasswordChangeMeta Json?
+  tokensInvalidBefore DateTime?
+  nickname            String?
+  displayName         String?
+  coverImage          String?
+  profilePicture      String?
+  categorylock        categorylock[]
+  loginalerttoken     loginalerttoken[]
+  notification        notification[]
+  friendships         friendship[]   @relation("UserFriendships")
+  friendOf            friendship[]   @relation("FriendFriendships")
+  sentMessages        chatmessage[]  @relation("SentMessages")
+  receivedMessages    chatmessage[]  @relation("ReceivedMessages")
+  voiceCalls          voicecall[]
+  emailverificationtoken emailverificationtoken[]
+  passwordresettoken  passwordresettoken[]
+}
+
+model emailverificationtoken {
+  id        String   @id
+  userId    String
+  email     String
+  tokenHash String   @unique(map: "EmailVerificationToken_tokenHash_key")
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user user @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model passwordresettoken {
+  id        String   @id
+  userId    String
+  email     String
+  tokenHash String   @unique(map: "PasswordResetToken_tokenHash_key")
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user user @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model notification {
+  id        String   @id
+  userId    String
+  type      String
+  title     String
+  message   String?  @db.Text
+  dedupeKey String?
+  meta      Json?
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  user user @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Notification_userId_fkey")
+
+  @@index([userId, createdAt], map: "Notification_userId_createdAt_idx")
+  @@index([readAt], map: "Notification_readAt_idx")
+  @@unique([userId, dedupeKey], map: "Notification_userId_dedupeKey_key")
+}
+
+model loginalerttoken {
+  id        String   @id
+  token     String   @unique(map: "LoginAlertToken_token_key")
+  userId    String
+  ip        String?
+  userAgent String?  @db.Text
+  country   String?
+  region    String?
+  city      String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user user @relation(fields: [userId], references: [id], onDelete: Cascade, map: "LoginAlertToken_userId_fkey")
+
+  @@index([userId], map: "LoginAlertToken_userId_idx")
+  @@index([expiresAt], map: "LoginAlertToken_expiresAt_idx")
+}
+
+model friendship {
+  id         String   @id
+  userId     String
+  friendId   String
+  status     String   @default("PENDING") // PENDING, ACCEPTED, BLOCKED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   user @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  friend user @relation("FriendFriendships", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+  @@index([status])
+}
+
+model chatmessage {
+  id         String    @id
+  senderId   String
+  receiverId String
+  content    String    @db.Text
+  fileUrl    String?
+  fileName   String?
+  fileSize   Int?
+  fileMime   String?
+  isRead     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  sender   user @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver user @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+}
+
+model voicecall {
+  id               String         @id
+  callId           String         @unique
+  creatorId        String
+  mode             String         // PRIVATE or ANONYMOUS
+  isPublic         Boolean        @default(false) // true = public room, false = private/anonymous
+  roomName         String?        // ชื่อห้องสาธารณะ
+  password         String?        // รหัสผ่านห้อง (hashed)
+  inviteToken      String?        @unique // โทเค็นสำหรับลิงค์เชิญ
+  status           String         @default("ACTIVE") // ACTIVE, WAITING, ENDED
+  participantIds   String         @db.LongText // JSON array of participant user IDs
+  maxParticipants  Int            @default(7)
+  startedAt        DateTime       @default(now())
+  endedAt          DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  creator user @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  history voicecallhistory[]
+
+  @@index([callId])
+  @@index([creatorId])
+  @@index([isPublic])
+  @@index([status])
+  @@index([createdAt])
+  @@index([inviteToken])
+}
+
+model voicecallhistory {
+  id         String   @id
+  callId     String
+  voiceCallId String
+  userId     String
+  action     String   // JOINED, LEFT
+  timestamp  DateTime @default(now())
+
+  voiceCall voicecall @relation(fields: [voiceCallId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@index([voiceCallId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model offweb {
+  id        String   @id
+  isOff     Boolean  @default(false) @map("is_off")
+  message   String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model apikey {
+  id           String   @id
+  apiKeyHash   String   @map("api_key_hash")
+  apiKeyPrefix String   @map("api_key_prefix")
+  name         String
+  isActive     Boolean  @default(true) @map("is_active")
+  lastSeen     DateTime? @map("last_seen")
+  lastIp       String?  @map("last_ip")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([apiKeyPrefix])
+  @@index([isActive])
+  @@index([lastSeen])
+  @@map("api_keys")
 }

@@ -1,0 +1,23 @@
+2026-01-13T02:56:43: ▲ Next.js 16.1.1
+2026-01-13T02:56:43: - Local:         http://localhost:3001
+2026-01-13T02:56:43: - Network:       http://172.20.10.3:3001
+2026-01-13T02:56:43: 
+2026-01-13T02:56:43: ✓ Starting...
+2026-01-13T02:56:44: ✓ Ready in 523ms
+2026-01-13T14:20:28: ▲ Next.js 16.1.1
+2026-01-13T14:20:28: - Local:         http://localhost:3001
+2026-01-13T14:20:28: - Network:       http://172.20.10.3:3001
+2026-01-13T14:20:28: 
+2026-01-13T14:20:28: ✓ Starting...
+2026-01-13T14:20:29: ✓ Ready in 616ms
+2026-01-13T14:21:06: Login attempt for: nkn
+2026-01-13T14:21:06: authorize called, NODE_ENV= production
+2026-01-13T14:21:06: Total users in DB: 2
+2026-01-13T14:21:06: User found, checking password...
+2026-01-13T14:21:06: Login successful for: nkn
+2026-01-13T14:35:41: ▲ Next.js 16.1.1
+2026-01-13T14:35:41: - Local:         http://localhost:3001
+2026-01-13T14:35:41: - Network:       http://172.20.10.3:3001
+2026-01-13T14:35:41: 
+2026-01-13T14:35:41: ✓ Starting...
+2026-01-13T14:35:41: ✓ Ready in 446ms
